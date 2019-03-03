@@ -1,0 +1,14 @@
+{
+	"DefaultExpiration": 100,
+	"Items": {
+		"A": {
+			"Data": "4",
+			"Expiration": 1551655638718906500
+		},
+		"B": {
+			"Data": "13",
+			"Expiration": 0
+		}
+	},
+	"Lock": {}
+}
