@@ -1,67 +1,62 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
-	"time"
 )
 
-// Llen return length of a list
-func (store *Store) Llen(key string) (int, error) {
-	store.lock.RLock()
-	// "Inlining" of get and Expired
-	item, found := store.items[key]
-	if !found {
-		store.lock.RUnlock()
-		return 0, nil
-	}
-
-	if item.Expiration > 0 {
-		if time.Now().UnixNano() > item.Expiration {
-			store.lock.RUnlock()
-			return 0, nil
-		}
-	}
-
-	slice, ok := item.Data.([]string)
-	if !ok {
-		store.lock.RUnlock()
-		return 0, fmt.Errorf("the data is not a list")
-	}
-
-	store.lock.RUnlock()
-	return len(slice), nil
+// List type for data
+type List struct {
+	GoList *list.List
 }
 
-// Rpush append 1 or more values to the list, create list if not exists, return length of list after operation
-func (store *Store) Rpush(key string, data []string, t time.Duration) (int, error) {
-	var e int64
+// LLen return length of a list.
+func (l *List) LLen() int {
+	return l.GoList.Len()
+}
 
-	store.lock.Lock()
-	defer store.lock.Unlock()
-
-	if t == DefaultExpiration {
-		t = store.defaultExpiration
+// RPush append 1 or more values to the list, create list if not exists, return length of list after operation.
+func (l *List) RPush(values []string) int {
+	for _, v := range values {
+		l.GoList.PushBack(v)
 	}
-	if t > 0 {
-		e = time.Now().Add(t).UnixNano()
+	return l.LLen()
+}
+
+// LPop remove and return the first item of the list.
+func (l *List) LPop() (string, error) {
+	e := l.GoList.Front()
+	if e == nil {
+		return "", fmt.Errorf("no data in the list")
+	}
+	l.GoList.Remove(e)
+	return e.Value.(string), nil
+}
+
+// RPop remove and return the last item of the list.
+func (l *List) RPop() (string, error) {
+	e := l.GoList.Back()
+	if e == nil {
+		return "", fmt.Errorf("no data in the list")
+	}
+	l.GoList.Remove(e)
+	return e.Value.(string), nil
+}
+
+// LRange return a range of element from the list (zero-based, inclusive of start and stop), start and stop are non-negative integers
+func (l *List) LRange(start int, end int) []string {
+	values := []string{}
+	if start > end {
+		return values
 	}
 
-	item, found := store.items[key]
-	if !found {
-		store.items[key] = Item{
-			Data:       []string{},
-			Expiration: e,
+	e := l.GoList.Front()
+
+	for i := 0; i <= end && e != nil; i++ {
+		if i >= start {
+			values = append(values, e.Value.(string))
 		}
-		item = store.items[key]
-		fmt.Println("not found in key, creating new")
+		e = e.Next()
 	}
-	fmt.Println("current:", store.items[key].Data)
-
-	_, ok := item.Data.([]string)
-	if !ok {
-		return 0, fmt.Errorf("the data is not a list")
-	}
-	item.Data = append(item.Data, interface{ data })
-
-	return len(item.Data), nil
+	return values
 }
