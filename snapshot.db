@@ -2,11 +2,21 @@
 	"DefaultExpiration": 100,
 	"Items": {
 		"A": {
-			"Data": "4",
-			"Expiration": 1551655638718906500
+			"Data": "1",
+			"Expiration": 0
 		},
 		"B": {
-			"Data": "13",
+			"Data": {
+				"GoList": {}
+			},
+			"Expiration": 0
+		},
+		"C": {
+			"Data": {
+				"Set": {
+					"1": true
+				}
+			},
 			"Expiration": 0
 		}
 	},

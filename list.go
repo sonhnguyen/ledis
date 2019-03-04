@@ -7,7 +7,7 @@ import (
 
 // List type for data
 type List struct {
-	GoList *list.List
+	GoList list.List
 }
 
 // LLen return length of a list.

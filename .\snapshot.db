@@ -1,0 +1,39 @@
+{
+	"DefaultExpiration": 100,
+	"Items": {
+		"A": {
+			"Data": "1",
+			"Expiration": 1551687744533124000
+		},
+		"B": {
+			"Data": "100",
+			"Expiration": 0
+		},
+		"C": {
+			"Data": "123",
+			"Expiration": 0
+		},
+		"D": {
+			"Data": "100",
+			"Expiration": 0
+		},
+		"F": {
+			"Data": {
+				"Set": {
+					"": true,
+					"1": true,
+					"2": true,
+					"3": true
+				}
+			},
+			"Expiration": 0
+		},
+		"LIST": {
+			"Data": {
+				"GoList": {}
+			},
+			"Expiration": 0
+		}
+	},
+	"Lock": {}
+}

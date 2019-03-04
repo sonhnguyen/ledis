@@ -25,7 +25,7 @@ func mergeSlices(s1, s2 []string) []string {
 
 // SaveFile save an interface to file.
 func SaveFile(path string, v interface{}) error {
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
@@ -43,10 +43,12 @@ func SaveFile(path string, v interface{}) error {
 
 // RestoreFile restore from a file to a interface
 func RestoreFile(path string, v interface{}) error {
-	f, err := os.Open(path)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	return json.NewDecoder(f).Decode(v)
+	err = json.NewDecoder(f).Decode(v)
+
+	return err
 }

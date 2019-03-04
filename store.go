@@ -212,7 +212,7 @@ func (store *Store) commandHandler(name string, agrs []string) (interface{}, err
 		if len(agrs) != 0 {
 			return "", fmt.Errorf("SAVE expects 0 arguments")
 		}
-		err = store.Save(".\\snapshot.db")
+		err = store.Save("snapshot.db")
 		if err != nil {
 			return "", fmt.Errorf("error in SAVE: %s", err)
 		}
@@ -220,7 +220,7 @@ func (store *Store) commandHandler(name string, agrs []string) (interface{}, err
 		if len(agrs) != 0 {
 			return "", fmt.Errorf("SAVE expects 0 arguments")
 		}
-		err = store.Restore(".\\snapshot.db")
+		err = store.Restore("snapshot.db")
 		if err != nil {
 			return "", fmt.Errorf("error in SAVE: %s", err)
 		}
@@ -234,19 +234,19 @@ func (store *Store) commandHandler(name string, agrs []string) (interface{}, err
 // Get at key
 func (store *Store) Get(key string) interface{} {
 	store.Lock.RLock()
-	// "Inlining" of get and Expired
+	defer store.Lock.RUnlock()
+
 	item, found := store.Items[key]
 	if !found {
-		store.Lock.RUnlock()
 		return nil
 	}
+
 	if *item.Expiration > 0 {
 		if time.Now().UnixNano() > *item.Expiration {
-			store.Lock.RUnlock()
 			return nil
 		}
 	}
-	store.Lock.RUnlock()
+
 	return item.Data
 }
 
@@ -273,42 +273,29 @@ func (store *Store) Set(key string, data interface{}, t time.Duration) {
 // LLen return length of a list
 func (store *Store) LLen(key string) (int, error) {
 	store.Lock.RLock()
-	// "Inlining" of get and Expired
-	item, found := store.Items[key]
-	if !found {
-		store.Lock.RUnlock()
-		return 0, nil
-	}
+	defer store.Lock.RUnlock()
 
-	if *item.Expiration > 0 {
-		if time.Now().UnixNano() > *item.Expiration {
-			store.Lock.RUnlock()
-			return 0, nil
-		}
-	}
-
-	slice, ok := item.Data.(*List)
+	slice, ok := store.Get(key).(*List)
 	if !ok {
-		store.Lock.RUnlock()
 		return 0, fmt.Errorf("the data is not a list")
 	}
 
-	store.Lock.RUnlock()
 	return slice.LLen(), nil
 }
 
 // RPush append 1 or more values to the list, create list if not exists, return length of list after operation
 func (store *Store) RPush(key string, data []string, t time.Duration) (int, error) {
-
 	_, found := store.Items[key]
 	if !found {
-		store.Set(key, &List{GoList: list.New()}, t)
+		store.Set(key, &List{GoList: list.List{}}, t)
 	}
 
-	list, ok := store.Items[key].Data.(*List)
+	store.Lock.RLock()
+	list, ok := store.Get(key).(*List)
 	if !ok {
 		return 0, fmt.Errorf("the data is not a list")
 	}
+	store.Lock.RUnlock()
 
 	store.Lock.Lock()
 	defer store.Lock.Unlock()
@@ -318,26 +305,32 @@ func (store *Store) RPush(key string, data []string, t time.Duration) (int, erro
 
 // LPop remove and return the first item of the list
 func (store *Store) LPop(key string) (string, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
-
-	list, ok := store.Items[key].Data.(*List)
+	store.Lock.RLock()
+	list, ok := store.Get(key).(*List)
 	if !ok {
 		return "", fmt.Errorf("the data is not a list")
 	}
+	store.Lock.RUnlock()
+
+	store.Lock.Lock()
+	defer store.Lock.Unlock()
+
 	result, err := list.LPop()
 	return result, err
 }
 
 // RPop remove and return the last item of the list
 func (store *Store) RPop(key string) (string, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
-
-	list, ok := store.Items[key].Data.(*List)
+	store.Lock.RLock()
+	list, ok := store.Get(key).(*List)
 	if !ok {
 		return "", fmt.Errorf("the data is not a list")
 	}
+	store.Lock.RUnlock()
+
+	store.Lock.Lock()
+	defer store.Lock.Unlock()
+
 	result, err := list.RPop()
 
 	return result, err
@@ -345,10 +338,10 @@ func (store *Store) RPop(key string) (string, error) {
 
 // LRange return a range of element from the list (zero-based, inclusive of start and stop), start and stop are non-negative integers
 func (store *Store) LRange(key string, start, end int) ([]string, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
+	store.Lock.RLock()
+	defer store.Lock.RUnlock()
 
-	list, ok := store.Items[key].Data.(*List)
+	list, ok := store.Get(key).(*List)
 	if !ok {
 		return []string{}, fmt.Errorf("the data is not a list")
 	}
@@ -363,10 +356,12 @@ func (store *Store) SAdd(key string, values []string, t time.Duration) (int, err
 		store.Set(key, Set{Set: make(map[string]bool)}, t)
 	}
 
-	set, ok := store.Items[key].Data.(Set)
+	store.Lock.RLock()
+	set, ok := store.Get(key).(Set)
 	if !ok {
 		return 0, fmt.Errorf("the data is not a set")
 	}
+	store.Lock.RUnlock()
 
 	store.Lock.Lock()
 	defer store.Lock.Unlock()
@@ -376,10 +371,10 @@ func (store *Store) SAdd(key string, values []string, t time.Duration) (int, err
 
 // SCard return the number of elements of the set stored at key
 func (store *Store) SCard(key string) (int, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
+	store.Lock.RLock()
+	defer store.Lock.RUnlock()
 
-	set, ok := store.Items[key].Data.(Set)
+	set, ok := store.Get(key).(Set)
 	if !ok {
 		return 0, fmt.Errorf("the data is not a set")
 	}
@@ -389,10 +384,10 @@ func (store *Store) SCard(key string) (int, error) {
 
 // SMembers return array of all members of set
 func (store *Store) SMembers(key string) ([]string, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
+	store.Lock.RLock()
+	defer store.Lock.RUnlock()
 
-	set, ok := store.Items[key].Data.(Set)
+	set, ok := store.Get(key).(Set)
 	if !ok {
 		return []string{}, fmt.Errorf("the data is not a set")
 	}
@@ -402,13 +397,15 @@ func (store *Store) SMembers(key string) ([]string, error) {
 
 // SRem remove values from set
 func (store *Store) SRem(key string, values []string) (int, error) {
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
-
-	set, ok := store.Items[key].Data.(Set)
+	store.Lock.RLock()
+	set, ok := store.Get(key).(Set)
 	if !ok {
 		return 0, fmt.Errorf("the data is not a set")
 	}
+	store.Lock.RUnlock()
+
+	store.Lock.Lock()
+	defer store.Lock.Unlock()
 
 	return set.SRem(values), nil
 }
@@ -417,14 +414,14 @@ func (store *Store) SRem(key string, values []string) (int, error) {
 func (store *Store) SInter(keys []string) ([]string, error) {
 	results := []string{}
 
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
-
 	for _, k := range keys {
-		set, ok := store.Items[k].Data.(Set)
+		store.Lock.RLock()
+		set, ok := store.Get(k).(Set)
 		if !ok {
 			return []string{}, fmt.Errorf("the data is not a set at key: %s", k)
 		}
+		store.Lock.RUnlock()
+
 		if len(results) == 0 {
 			results = set.SMembers()
 		}
@@ -438,11 +435,12 @@ func (store *Store) SInter(keys []string) ([]string, error) {
 func (store *Store) Keys() ([]string, error) {
 	results := []string{}
 
-	store.Lock.Lock()
-	defer store.Lock.Unlock()
-
 	for k := range store.Items {
-		results = append(results, k)
+		store.Lock.RLock()
+		if store.Get(k) != nil {
+			results = append(results, k)
+		}
+		store.Lock.RUnlock()
 	}
 
 	return results, nil
@@ -525,7 +523,7 @@ func (store *Store) Restore(path string) error {
 	store.Lock.Lock()
 	defer store.Lock.Unlock()
 
-	if err := RestoreFile(".\\snapshot.db", store); err != nil {
+	if err := RestoreFile(path, store); err != nil {
 		return err
 	}
 	return nil
