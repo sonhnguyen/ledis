@@ -1,4 +1,4 @@
-# holistics-ledis
+# ledis
 
 ## Functionalities:
 1. Strings:
