@@ -31,6 +31,6 @@ start and stop), start and stop are non-negative integers
    - RESTORE: Restore the db from "snapshot.db".
 
 ## Installation
-`go install` and run holistic-ledis binary file.
+`go install` and run binary file.
 ## Usage
 The program will expose a `POST` endpoint at `/`, put the commands above into the body to use.
